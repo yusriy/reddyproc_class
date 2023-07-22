@@ -22,3 +22,8 @@ library(REddyProc)
 #install.packages("tidyverse")
 #update.packages(oldPkgs="dplyr")
 
+
+
+temp <- list(c(70,2004),c(210,2004),c(320,2004),c(70,2005),c(180,2005),c(320,2005)
+             ,c(120,2006),c(305,2006))
+temp2 <- do.call(rbind,temp)

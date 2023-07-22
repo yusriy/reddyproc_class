@@ -1,0 +1,97 @@
+---
+title: "REddyProc for Eddy Covariance Data Analysis"
+author: "Yusri Yusup"
+date: "`r Sys.Date()`"
+output: powerpoint_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Step 1: Prepare the Data
+## Step 1-1: Import the Data
+
+The data that will be used is included in the package for demo purposes.
+Data:
+1. DEGebExample: Gebesee, Germany, data from 2004 to 2006. It is downloadable at http://www.europe-fluxdata.eu/home/site-details?id=3 after registration.
+2. Example_DETha98: Tharandt, Germany, data for the year 1998. 
+
+The package wesbite is at https://bgc.iwww.mpg.de/5622399/REddyProc
+```{r Importing and Previewing the Data}
+
+library(REddyProc)
+data(DEGebExample)
+data(Example_DETha98)
+# Gebesee, Germany, data 
+summary(DEGebExample)
+# Tharandt, Germany, data
+summary(Example_DETha98)
+
+```
+## Step 1-2: Calculate Needed Paramters
+
+Essential parameters can be calculated from available parameters using function
+built in REddyProc.
+
+Useful functions:
+1. fCalcVPDfromRHandTair(...)
+2. fCalcETfromLE(...) 
+3. fConvertTimeToPosix(...)
+4. fConvertCtoK(...)
+
+## Step 1-3-1: Tharandt Dataset: Unsupported Timestamp Format
+In the Tharandt dataset, the time columns are not suitable for further analysis
+in REddyProc. It needs to be converted.
+
+```{r Unsupported Timestamp Format}
+head(Example_DETha98)
+Example_DETha98V1 <- fConvertTimeToPosix(Example_DETha98, TFormat = c('YDH'),
+                    Year = 'Year',
+                    Day = 'DoY', 
+                    Hour = 'Hour')
+head(Example_DETha98V1)
+```
+## Step 1-3-2: Gebasse Dataset: Missing VPD
+
+Meanwhile, the DEGeb dataset does not have the VPD parameter that could be 
+useful for gap-filling and partitioning.
+
+```{r Missing VPD}
+head(DEGebExample)
+VPD <- fCalcVPDfromRHandTair(DEGebExample$rH, DEGebExample$Tair)
+DEGebExampleV1 <- cbind(DEGebExample,VPD)
+head(DEGebExampleV1)
+```
+# Step 2: Create REddyProc Object Class
+
+Before REddyProc can work on your data, the data has to be converted to a REddyProc object.
+
+## Tharandt (Forest Area, Timezone = +2)
+The Anchor Station Tharandt (50.96235°N, 13.56516°E, 385 m a.s.l.) is located in the Eastern part of a large forested area (60 km²) near the city of Tharandt, about 25 km SW of Dresden. This forest has a long history of forestry documentation as well as meteorological and hydrological measurements. The spruce stand at the Anchor Station Tharandt was established by seeding in 1887. Besides the dominating spruce trees some additional tree species are present: in the vicinity of the measurement tower (500 m ra ????
+
+## Gebesee (Agricultural Area, TimeZone = +1)
+the study site is located near the village Gebesee about 20 km NW of Erfurt, the station is located in the middle of an agricultural field, an approximate ...51.0997, 10.9146
+```{r Create Class}
+?sEddyProc_initialize  # called by sEddyProc$new
+?sEddyProc_sSetLocationInfo
+
+# Tharandt Data
+EProcDETha <- sEddyProc$new('DE-Tha', Example_DETha98V1, c('NEE','Rg','Tair','VPD','Ustar'))
+EProcDETha$sLOCATION
+## Location of Tharandt
+EProcDETha$sSetLocationInfo(LatDeg = 51.0, LongDeg = 13.6, TimeZoneHour = 2)
+EProcDETha$sLOCATION
+
+# Gebesee Data
+EProcDEGeb <- sEddyProc$new('DE-Geb', DEGebExampleV1, c('NEE','Rg','Tair','VPD','Ustar'))
+EProcDEGeb$sLOCATION
+## Location of Gebesee
+EProcDEGeb$sSetLocationInfo(LatDeg = 51.1, LongDeg = 10.9, TimeZoneHour = 1)  
+EProcDEGeb$sLOCATION
+
+```
+
+
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
