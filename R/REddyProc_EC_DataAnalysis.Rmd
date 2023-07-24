@@ -3,288 +3,581 @@ title: "REddyProc for Eddy Covariance Data Analysis"
 author: "Yusri Yusup"
 date: "`r Sys.Date()`"
 output:
-  html_document: default
   pdf_document: default
+  html_document: default
 ---
+# Acknowledgements
+This content was built on top of the talk by Thomas Wutzler. Credit goes to him for his presentation (https://www.youtube.com/watch?v=-b0vc4u8kls&t=354s) and material at https://github.com/bgctw/EGU19EddyCourse/blob/master/Source/DEGebExample_complete.Rmd.
+
+# Prerequisites
+
+## Knowledge
+
+It would be easier for you to follow the talk if you have brief backgrounds on:
+1. R language
+2. Eddy covariance
+3. Net Ecosystem Exchange
+
+## Software
+You would need the software below to perform the steps discussed in the talk.
+
+1. R 
+2. RStudio
+3. Packages: REddyProc
+
+# Introduction to the REddyProc Package: When Do We Use It?
+
+The REddyProc package is used after the pre-processing of the raw, high-frequency eddy
+covariance data. Using software, such as EddyPro, the data was checked using quality-control 
+protocols, e.g., Mauder and Foken (2004), Foken (2003), etc., to discard low-quality fluxes.
+
+We use the package to:
+
+1. Post-process the Net Ecosystem Exchange (NEE) data.
+2. Estimate the NEE, e.g., the annual sum of NEE.
+3. Determine the contributions of processes in the NEE, e.g., productivity and respiration.
+
+There are three main steps in a typical REddyProc analysis workflow. 
+
+1. The REddyProc package is utilized after the pre-processing step in which the fluxes are checked further for under-developed turbulence or low friction velocity ($u_*$).
+
+    * The package can suggest threshold values of $u_*$ and calculate uncertainties in different scenarios.
+
+2. Gaps introduced due to the discarding of fluxes below the thresholds can later be filled.
+
+3. The fluxes can then be separated into groups of Gross Primary Productivity (GPP) and Ecosystem Resipiration ($R_{eco}$).
+
+You can view more details about the package at https://bgc.iwww.mpg.de/5622399/REddyProc.
+
+## Learning Outcomes
+At the end of the talk, you would be able to:
+
+1. List the capabilities of the REddyProc package.
+2. Explain the analysis steps of the package.
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+# Step 0: Preliminary Work
+
+## Install the Package
+
+The package needs to be installed prior to use. You might also need to install other package dependencies to run REddyProc. You can do so by using the `install.package` command on the missing package.
+
+```{r Install Package}
+#install.packages("REddyProc", repos = "http://cran.us.r-project.org")
+```
+
+You will need to load the package after a successful installation. 
+
+```{r Load Package}
+library(REddyProc)
+```
+
 
 # Step 1: Prepare the Data
+
 ## Step 1-1: Import the Data
 
-The data that will be used is included in the package for demo purposes.
-Data:
-1. DEGebExample: Gebesee, Germany, data from 2004 to 2006. It is downloadable at http://www.europe-fluxdata.eu/home/site-details?id=3 after registration.
-2. Example_DETha98: Tharandt, Germany, data for the year 1998. 
+The eddy covariance data that will be used in this walk-through are included in the package. They are for demo purposes.
 
-The package wesbite is at https://bgc.iwww.mpg.de/5622399/REddyProc
-```{r Importing and Previewing the Data}
+1. `DEGebExample`, the Gebesee, Germany, data from 2004 to 2006. 
+2. `Example_DETha98`, the Tharandt, Germany, data for the year 1998. 
 
-library(REddyProc)
+The full data is downloadable at http://www.europe-fluxdata.eu/home/ after registration.
+
+Load the Gebesee data.
+```{r Load Gebesee Data}
 data(DEGebExample)
-data(Example_DETha98)
-# Gebesee, Germany, data 
-summary(DEGebExample)
-# Tharandt, Germany, data
-summary(Example_DETha98)
-
 ```
-## Step 1-2: Calculate Needed Paramters
 
-Essential parameters can be calculated from available parameters using function
-built in REddyProc.
+Load the Tharandt data.
+```{r Load Tharandt Data}
+data(Example_DETha98)
+```
 
-Useful functions:
-1. fCalcVPDfromRHandTair(...)
-2. fCalcETfromLE(...) 
-3. fConvertTimeToPosix(...)
-4. fConvertCtoK(...)
+Get an overview of the data. Look at the data parameters and take note of missing data or `NA`.
+
+### The Gebesee, Germany, Data 
+#### Characteristics
+* Surface: Agriculture
+* Time zone: +1 GMT
+* Latitude, Longitude: 51.1N, 10.9E
+
+Notice that VPD is not in the dataset.
+
+```{r Summary Gebesee}
+summary(DEGebExample)
+```
+
+
+### The Tharandt, Germany, Data
+#### Characteristics
+* Surface: Forest
+* Time zone: +2 GMT
+* Latitude, Longitude: 51.0N, 13.6E
+
+Note that the timestamp is not in REddyProc-usable format.
+```{r Summary Tharandt} 
+summary(Example_DETha98)
+```
+### Important Parameters
+
+Parameters required for the package to run are:
+
+1. `DateTime` in the POSIX format.
+2. `NEE` or carbon dioxide flux.
+3. `Ustar` or friction velocity
+4. `Rg`, `Tair`, `rH`, and or `VPD` for the gap-filling and partitioning steps.
+
+Note that:
+`Rg` is global solar radiation.
+`Tair` is air temperature.
+`rH` is relative humidity.
+`VPD` is vapor pressure deficit.
+
+
+## Step 1-2: Calculate Needed Parameters
+
+Essential parameters can be calculated from existing parameters using functions built in REddyProc.
+
+Some useful functions are:
+
+1. `fConvertTimeToPosix`. We will use this in the demo.
+2. `fCalcVPDfromRHandTair`. We will use this in the demo.
+3. `fCalcETfromLE` 
+4. `fConvertCtoK`
+
+There are other functions in the package and the function name begins with an `f`.
 
 ## Step 1-3-1: Tharandt Dataset: Unsupported Timestamp Format
-In the Tharandt dataset, the time columns are not suitable for further analysis
-in REddyProc. It needs to be converted.
 
-```{r Unsupported Timestamp Format}
+In the Tharandt dataset, the date-time columns are not suitable for analysis in REddyProc. It needs to be converted to the POSIX format.
+
+```{r Tharandt Timestamp}
 head(Example_DETha98)
+```
+We can convert the timestamp using the `fConvertTimeToPosix` function. It will add the `DateTime` column into the data frame.
+
+The `'YDH'` means Year-Day-Hour, and the `Year`, `Day`, and `Hour` arguments require the columns that contains the Year, DoY, and Hour information.
+
+You can find other valid time configurations in the documentation by running the command `?fConvertTimeToPosix`.
+
+```{r Tharandt Timestamp Conversion}
 Example_DETha98V1 <- fConvertTimeToPosix(Example_DETha98, TFormat = c('YDH'),
                     Year = 'Year',
                     Day = 'DoY', 
                     Hour = 'Hour')
 head(Example_DETha98V1)
 ```
-## Step 1-3-2: Gebesee Dataset: Missing VPD
+## Step 1-3-2: Missing VPD in the Gebesee Data
 
-Meanwhile, the DEGeb dataset does not have the VPD parameter that could be 
-useful for gap-filling and partitioning.
-
-```{r Missing VPD}
+The Gebesee dataset does not have the VPD parameter, which could be useful for gap-filling and partitioning.
+```{r Gebesee Missing VPD}
 head(DEGebExample)
+```
+
+We can calculate VPD using the function `fCalcVPDfromRHandTair`. The input arguments' units are stated in the documentation, `?fCalcVPDfromRHandTair`
+
+```{r Gebesee Add VPD}
 VPD <- fCalcVPDfromRHandTair(DEGebExample$rH, DEGebExample$Tair)
 DEGebExampleV1 <- cbind(DEGebExample,VPD)
+rm(VPD) # A house-keeping step.
 head(DEGebExampleV1)
 ```
 # Step 2: Create REddyProc Object Class
 
-Before REddyProc can work on your data, the data has to be converted to a REddyProc object.
+Before REddyProc can work on your data, the data has to be converted to an REddyProc object.
 
-## Tharandt (Forest Area, Timezone = +2)
-The Anchor Station Tharandt (50.96235°N, 13.56516°E, 385 m a.s.l.) is located in the Eastern part of a large forested area (60 km²) near the city of Tharandt, about 25 km SW of Dresden. This forest has a long history of forestry documentation as well as meteorological and hydrological measurements. The spruce stand at the Anchor Station Tharandt was established by seeding in 1887. Besides the dominating spruce trees some additional tree species are present: in the vicinity of the measurement tower (500 m ra ????
+## Gebesee 
+Create the class for the Gebesee data. The ID is `DE-Geb` and the parameters are:
 
-## Gebesee (Agricultural Area, TimeZone = +1)
-the study site is located near the village Gebesee about 20 km NW of Erfurt, the station is located in the middle of an agricultural field, an approximate ...51.0997, 10.9146
-```{r Create Class}
-?sEddyProc_initialize  # called by sEddyProc$new
-?sEddyProc_sSetLocationInfo
+1. `NEE` 
+2. `Rg`
+3. `Tair`
+4. `VPD`
+5. `Ustar`
 
-# Tharandt Data
-EProcDETha <- sEddyProc$new('DE-Tha', Example_DETha98V1, c('NEE','Rg','Tair','VPD','Ustar'))
-EProcDETha$sLOCATION
-## Location of Tharandt
-EProcDETha$sSetLocationInfo(LatDeg = 51.0, LongDeg = 13.6, TimeZoneHour = 2)
-EProcDETha$sLOCATION
-
+```{r Gebesee Create Class}
 # Gebesee Data
 EProcDEGeb <- sEddyProc$new('DE-Geb', DEGebExampleV1, c('NEE','Rg','Tair','VPD','Ustar'))
+```
+
+Check the additional info of the data.
+```{r Gebesee Info Check}
 EProcDEGeb$sLOCATION
+```
+
+Add the location information. This is important for the daytime-nighttime partitioning analysis because it requires the time to be accurate.
+
+```{r Gebesee Add Info}
 ## Location of Gebesee
 EProcDEGeb$sSetLocationInfo(LatDeg = 51.1, LongDeg = 10.9, TimeZoneHour = 1)  
 EProcDEGeb$sLOCATION
-
 ```
+
+## Tharandt 
+Create the class for the Gebesee data. The ID is `DE-Tha` and the parameters are:
+
+1. `NEE` 
+2. `Rg`
+3. `Tair`
+4. `VPD`
+5. `Ustar`
+
+```{r Tharandt Create Class}
+# Tharandt Data
+EProcDETha <- sEddyProc$new('DE-Tha', Example_DETha98V1, c('NEE','Rg','Tair','VPD','Ustar'))
+```
+
+Check the additional info of the data.
+```{r Tharandt Info Check}
+EProcDETha$sLOCATION
+```
+
+Add the location information.
+```{r Tharandt Add Info}
+## Location of Tharandt
+EProcDETha$sSetLocationInfo(LatDeg = 51.0, LongDeg = 13.6, TimeZoneHour = 2)
+EProcDETha$sLOCATION
+```
+
 # Step 3: u*-Threshold Estimation
 
-Based on the NEE plot, define seasons starting 
-at day 70, 210, 320 in 2004 and 70,180,320 in 2005 and 120,305 in 2006.
+Friction velocity, or ($u_*$), changes seasonally at Gebesee. Thus, the ($u_*$)-threshold needs to be estimated in each season. We do this because ($u_*$) changes with the surface cover change. A previous study determined the days on which the seasons and ($u_*$) change. It can be determined by visual inspection of the data.
 
-We do this because u* changes with surface cover change. The dates of when the
-surface changes need to be determined prior to analysis or it can be inspected 
-from the data visually.
+| Year | Start Day    |
+| :--- | :----------: |
+| 2004 | 70, 210, 320 |
+| 2005 | 70, 180, 320 |
+| 2006 | 120, 350     |
 
-## Step 3-2: Gebesee Dataset
-```{r u*-Threshold Estimation}
 
+## Step 3-1-2: Adding the Start Days for the Gebesee Data.
+
+Create a data frame for the start days.
+```{r Gebesee Adding Start Days}
 df_startDays <- data.frame(day=c(70,210,320,70,180,320,120,305),
                            year=c(2004,2004,2004,2005,2005,2005,2006,2006))
-
 df_startDays
+```
 
-# 15*60 is used to make sure the factor is within a row of the data
+
+Change the start days into the POSIX format.
+
+We can use `usCreateSeasonFactorYdayYear` to change the `df_startDays` data frame to a factor vector that contains values that tag each rows to their respective seasons.
+
+Create the factor vector. Note that the product `15*60` is used to make the time be between 00:00 and 00:30. The `summary` shows that there are 3312 observations for season `2004001`, i.e., between days 1 and 70, etc.
+```{r Gebesee Season Factor}
 seasonFactor <- usCreateSeasonFactorYdayYear(DEGebExampleV1$DateTime - 15*60,
                                              starts = df_startDays)
+summary(seasonFactor)
+```
 
-seasonStartsDate <- fConvertTimeToPosix(
-  data.frame(Year = df_startDays$year, 
-             DoY = df_startDays$day, 
-             Hour = 0.25), 
-  'YDH', 
-  Year = "Year", 
-  Day = "DoY", 
-  Hour = "Hour")
+*Optional*: View the Season Demarcation
+
+Create timestamps in the POSIX format from `df_startDays`. Here, we embed a new data frame with the additional column `Hour` into the `fConvertTimeToPosix` function call. The hour is set at `0.25` to be between 00:00 and 00:30, i.e., 00:15.
+```{r Gebesee Optional Convert df_startDays to POSIX}
+seasonStartsDate <- fConvertTimeToPosix(data.frame(Year = df_startDays$year, 
+                                                   DoY = df_startDays$day, 
+                                                   Hour = 0.25), 
+                                        TFormat = 'YDH', 
+                                        Year = "Year", 
+                                        Day = "DoY", 
+                                        Hour = "Hour")
 seasonStartsDate
 
 ```
-## Step 3-2-1: Check the Season Starting Dates
 
 You can check the dates by plotting them on the time series.
 
+```{r Gebesee Optional Plot Season Starting Dates}
 
-```{r Check the Season Starting Dates}
-
-plot(DEGebExample$DateTime, DEGebExample$NEE)
+plot(DEGebExample$DateTime, DEGebExample$NEE, pch=19, xlab = "Time", ylab = 'NEE')
 abline( v = seasonStartsDate$DateTime)
 ```
-# Step 3-2-3: Determine u*-Thresholds Distributions
 
-Specify the seasons defined before.
 
-For saving time, here use only 30 bootstrap samples (argument nSample) and 
-estimate only the 10th and 90th percentile (argument probs)
+# Step 3-2-2: Calculate the ($u_*$)-Thresholds Distributions
 
-Print the estimated thresholds.
+We will estimate the ($u_*$) limits using the `sEstimateUstarScenarios` function. The function will write to the data object. The `seasonFactor` is needed here to tell `REddyProc` the season intervals that it must estimate the ($u_*$) thresholds. 
 
-```{r Determine u*-Thresholds Distributions}
+Note that the ($u_*$) threshold estimation uses the `usEstUstarThreshold` function, which requires the `NEE`, `Tair`, and `seasonFactor`. It returns the median value.
 
-EProcDEGeb$sEstimateUstarScenarios(seasonFactor = seasonFactor, nSample = 10,
-                                   probs = c(0.05,0.5,0.95))
+In this example, the ($u_*$) threshold is estimated, using the `usEstUstarThreshold` function, 30 times, and the ($u_*$) limits are reported using the default quantiles of 5%, 50%, and 95%: The low, median, and high values of ($u_*$).
+
+The function `sGetEstimatedUstarThresholdDistribution` displays the results.
+
+Note that you can create the plots of NEE versus ($u_*$) by using the function `sPlotNEEVersusUStarForSeason`.
+
+
+
+```{r Gebesee Calculate u*-Thresholds}
+EProcDEGeb$sEstimateUstarScenarios(seasonFactor = seasonFactor, 
+                                   nSample = 30,
+                                   probs = c(0.05,0.50,0.95))
 EProcDEGeb$sGetEstimatedUstarThresholdDistribution()
-
-
-
 ```
-# Step 4-1: Gap-Filling
+# Step 4-1: Gap-Filling the Gebesee Data
 
+## Step 4-1-1: Check the Use of Seasonal ($u_*$) Thresholds
+First, we have to ensure the use of seasonal ($u_*$) thresholds. If it is not set in the previous step, check that it is used now.
 
-## Task 2a: Use seasonal u* thresholds
-
-- display the default annually used thresholds
-- specify using seasonsal thresholds
-- display the scenarios again
-
-```{r Gap-Filling}
-
-#?sEddyProc_sGetUstarScenarios
-#?sEddyProc_useSeaonsalUStarThresholds
-
+Show the default thresholds: annual
+```{r Gebesee Show Default Thresholds}
 EProcDEGeb$sGetUstarScenarios()
+```
+
+Instruct REddyProc to use the seasonal threholds.
+```{r Gebesee Use Seasonal Thresholds}
 EProcDEGeb$useSeaonsalUStarThresholds()
+```
+
+Confirm that the seasonal thresholds are used by displaying it.
+```{r Gebesee Confirm Thresholds}
 EProcDEGeb$sGetUstarScenarios()
-
-
 ```
-# Step 4-2: Gap-Filling
 
-Estimate random error also for non-gap records.
 
-```{r Gap-Filling}
+# Step 4-1-2: Gap-Fill the Gebesee Data
 
+Gap-fill the data using the function `sMDSGapFillUStarScens`. It will filter the data using the ($u_*$) thresholds and gap-fill it. 
+
+`MDS` means Marginal Distribution Sampling, which combines the Look Up Table (LUT) and Mean Diurnal Course (MDC) to gap-fill the data.
+
+Quality flags are created for the gap-filled data: 0, 1, and >1.
+
+* 0 means original observations
+* 1 gap-filled data with good quality (more parameters and shorter time window used)
+* >1 low quality (less parameters and longer time window used)
+
+The function also calculates the random error for non-gap records by replacing the original values with gap-filled values.
+
+```{r Gebesee Gap-Filling, message = FALSE}
 EProcDEGeb$sMDSGapFillUStarScens("NEE", FillAll = TRUE)
-
 ```
-What columns have been created?
+Check the columns that were created.
 
-For an explanation of the column names see [output format description](https://www.bgc-jena.mpg.de/bgi/index.php/Services/REddyProcWebOutput)
-- NEE_<scenario>_f: gaps replaced by modeled values (gapfilled)
-- NEE_<scenario>_fall: all NEE replaced by modeled values
-- NEE_<scenario>_fqc: quality flag: 0 observations, 1 good quality of gapfilling 
+Definitions
+* NEE_<scenario>_f: gaps replaced by modeled values (gap-filled)
+* NEE_<scenario>_fall: all NEE replaced by modeled values
+* NEE_<scenario>_fqc: quality flag: 0 observations, 1 good quality of gap-filling 
 
-```{r }
+```{r Gebesee Column Names}
 colnames(EProcDEGeb$sExportResults())
 ```
-# Step 4-3: Plot Fingerprint Plot
 
-First a single plot in document
-- for 90% quantile $u_{*Th}$ (suffix U90)
-- for year 2005
-
-```{r }
-EProcDEGeb$sPlotFingerprintY('NEE_U95_f', Year = 2005)
+Summarize the results.
+```{r Gebesee Summary After Gap-Filling}
+summary(EProcDEGeb$sExportResults())
 ```
 
-Next, produce pdf-files with legend for all years in subdirectory "figs"
+Check one of the parameters by plotting
+```{r Gebesee }
+plot(EProcDEGeb$sDATA$sDateTime, EProcDEGeb$sExportResults()$NEE_U50_f, pch = 19, xlab = 'Time', 
+     ylab = 'NEE_U50')
+```
+# Step 4-1-3: Gebesee Fingerprint Plot
 
-```{r}
-#?sEddyProc_sPlotFingerprint
+We can also generate a fingerprint plot using the function `sPlotFingerprintY`. This is for the `NEE_U95_f` parameter and the year 2004.
 
-EProcDEGeb$sPlotFingerprint('NEE_U95_f', Dir = "figs")
+```{r Gebesee Fingerplot for 2006}
+EProcDEGeb$sPlotFingerprintY('NEE_U50_f', Year = 2006)
 ```
 
-# Step 5-1: Flux Partitioning
+We can also produce PDF files with legend for all years in sub-directory "figs."
 
-## Task 3a: Prepare for partitioning
-Specify the Location and time zone (51.1N, 10.0W, 1 hour ahead of GMT)
+```{r Gebesee Fingerplot for All}
+EProcDEGeb$sPlotFingerprint('NEE_U50_f', Dir = "figs")
+```
 
-Gapfill the necessary meteorological input variables (Rg, Tair, VPD). Here
-we do not need computing the uncertainty of the non-filled records.
+# Step 5-1: Gebesee Preparing the Data for Partitioning
 
-```{r, message=FALSE}
+This step requires the data to have location (lat lon) information and the time zone because it uses the time to estimate daytime and nighttime. We already did this in the Step 3-1-2.
 
+There are some weather values that are missing and can be gap-filled here. However, we do not need to replace the original values with gap-filled values because we are not going to calculate random error.
 
+```{r Gebesee Gap-Fill Met Data, message=FALSE}
 EProcDEGeb$sMDSGapFill('Rg', FillAll = FALSE)     
 EProcDEGeb$sMDSGapFill('Tair', FillAll = FALSE)     
 EProcDEGeb$sMDSGapFill('VPD', FillAll = FALSE)     
 ```
 
-## Task 3b: Nighttime partitioning
-Perform the nighttime partitioning
+## Step 5-1-1: Gebesee Reichstein Partitioning
 
-```{r, message=FALSE}
+Partitioning the data into the nighttime fractions of the Gross Primary Production (GPP) and ecosystem respiration ($R_{eco}$) using all ($u_*$) scenarios. This uses the 'sMRFluxPartitionUStarScens` function. 
 
+More details on the equations used can be found in the paper Reichstein et al. (2005).
+
+
+```{r Gebesee Reichstein Partitioning, message=FALSE}
 EProcDEGeb$sMRFluxPartitionUStarScens()
 ```
 
-## Task 3c: Plotting the head GPP
-Query the result data.frame to variable dsResults
-```{r}
-
-dsResults <- EProcDEGeb$sExportResults()
+## Step 5-1-2: Plotting the GPP
+Extract the result to the variable nightPart and summarize it.
+```{r Gebesee Extract Reichstein Results}
+ReichsteinPart <- EProcDEGeb$sExportResults()
+summary(ReichsteinPart)
 ```
 
-Plot the head of GPP for U95 scenario against time (DEGebExample$DateTime)
-```{r}
-nRec = 48*4 # 4 days of half-hours
-plot(head(dsResults$GPP_U95_f,nRec) ~ head(DEGebExampleV1$DateTime, nRec), type = "l")
+Plot the GPP and Reco for `U50` scenario against time for two days (`48*2`).
+
+```{r Gebesee Reichstein GPP and Reco Time Series}
+nRec = 48*2 
+plot(head(DEGebExampleV1$DateTime, nRec), head(ReichsteinPart$GPP_U50_f,nRec), type = "l",
+     xlab = 'Time', ylab = 'NEE_U50')
+lines(head(DEGebExampleV1$DateTime, nRec), head(ReichsteinPart$Reco_U50,nRec), type = "l",
+     col = 'red')
 ```
 
 
-## Task3d: Daytime partitioning
-Perform the daytime partitioning.
+## Step 5-1-3: Gebesee Lasslop Partitioning
+Partitioning the data into the  fractions of the Gross Primary Production (GPP) and ecosystem respiration ($R_{eco}$) using all ($u_*$) scenarios. This uses the 'sGLFluxPartitionUStarScens` function. 
 
-```{r, message=FALSE}
+More details on the equations used can be found in the Lasslop et al. (2010).
 
+```{r Gebesee Lasslop Partitioning, message=FALSE}
 EProcDEGeb$sGLFluxPartitionUStarScens()
 ```
 
-## Task 3e: Produce fingerprint plots of GPP_DT and Reco_DT 
-- For the original non-bootstrapped data uStar scenario (suffix uStar)
-- In Sub-Directory `plotsHandsOn`
-```{r}
-?sEddyProc_sPlotFingerprint
-
-EProcDEGeb$sPlotFingerprint("GPP_DT_uStar",Dir = "figs")
-EProcDEGeb$sPlotFingerprint("Reco_DT_uStar",Dir = "figs")
-```
-
-## Task 3f: Save the results together with the data
-as tab-delimted text file "plotsHandsOn/DEGeb_Part.txt"
-Store the combined data and results in variable 'results'
-```{r}
-
-dsRes <- EProcDEGeb$sExportResults()
-dsData <- EProcDEGeb$sExportData()
-results <- cbind(dsData, dsRes)
-fWriteDataframeToFile(results, "DE-Geb_Part.txt", Dir = "results")
-```
-
-```{r }
-
+Export and summarize the results
+```{r Gebesee Extract Lasslop Results}
+LasslopPart <- EProcDEGeb$sExportResults()
+summary(LasslopPart)
 ```
 
 
-
-```{r }
-
+Plot the GPP and Reco for `U50` scenario against time for two days (`48*2`).
+```{r Gebesee Lasslop GPP and Reco Time Series}
+nRec <- 48*2 
+plot(head(DEGebExampleV1$DateTime, nRec), head(LasslopPart$GPP_U50_f,nRec), type = 'l',
+     xlab = 'Time', ylab = 'NEE_U50')
+lines(head(DEGebExampleV1$DateTime, nRec), head(LasslopPart$Reco_U50,nRec), type = "l",
+     col = 'red')
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+## Step 5-1-4: Fingerprint Plots of GPP_DT and Reco_DT 
+
+PDFs that contain the fingerprint plots will be generated and placed in the folder `figs`.
+
+* The non-bootstrapped data has the `uStar` suffix. 
+* The bootstrapped data has the scenario suffix, e.g., `U50`, `U95`, etc.
+
+
+```{r Gebesee Fingerplots of GPP_DT and Reco_DT}
+EProcDEGeb$sPlotFingerprint("GPP_DT_U50", Dir = "figs")
+EProcDEGeb$sPlotFingerprint("Reco_DT_U50", Dir = "figs")
+```
+
+## Step 5-1-5: Export the Gebesee Results
+
+This part will produce a text file for analysis outside R. It will be placed in the folder `results`.
+
+```{r Export Gebesee Results}
+
+GebResults <- EProcDEGeb$sExportResults()
+GebData <- EProcDEGeb$sExportData()
+GebCombResults <- cbind(GebData, GebResults)
+fWriteDataframeToFile(GebCombResults, "DE-Geb_Part.txt", Dir = "results")
+```
+# Step 6-1: Gebesee Bias with $u_{*Th}$
+## Bias for the Year 2004
+
+Create a subset data frame from the combined results.
+
+```{r Gebesee Bias 2004}
+GebCombResults$year <- as.POSIXlt(GebCombResults$DateTime)$year + 1900
+Geb2004 <- subset(GebCombResults, year == 2004)
+```
+
+## Step 6-1-1: Calculate the Annual Mean of NEE for each $u_{*Th}$ scenario
+
+We will use the gap-filled data of the difference scenarios.
+
+```{r Gebesee Mean}
+GebScenarios <- c("uStar","U05","U50","U95")
+NEE_UStar <- sapply(GebScenarios, function(suffix){
+  colName = paste0("NEE_",suffix,"_f")
+  mean(Geb2004[[colName]])
+})
+NEE_UStar
+```
+
+## Step 6-1-2: Calculate the Statistics
+Calculate the mean, standard deviation, and relative error.
+```{r Gebesee Calculate Statistics}
+c(mean(NEE_UStar), sd(NEE_UStar), sd(NEE_UStar)/abs(mean(NEE_UStar)))
+```
+
+# Step 7-1: Random Uncertainty Aggregation
+
+## Step 7-1-1: Gebesee Calculate Error Terms
+
+To calculate the error, the replaced NEE using the gap-filling method or `NEE_uStar_fall` is subtracted from the original NEE values `NEE_ustar_orig`. The resulting value is the residual.
+
+```{r Gebesee Calculate Error Terms}
+n <- sum(GebCombResults$NEE_uStar_fqc == 0) 
+
+# All Results
+GebCombResults$residual <- ifelse(GebCombResults$NEE_uStar_fqc == 0,
+                                  GebCombResults$NEE_uStar_orig - GebCombResults$NEE_uStar_fall,
+                                  NA)
+
+# Gebesee 2004 Results for Future Analysis
+Geb2004$residual <- ifelse(Geb2004$NEE_uStar_fqc == 0,
+                           Geb2004$NEE_uStar_orig - Geb2004$NEE_uStar_fall,
+                           NA)
+```
+
+## Step 6-1-2: Calculate the Empirical Autocorrelation Function
+```{r Gebesee Autocorrelation}
+library(lognorm)
+rho <- computeEffectiveAutoCorr(GebCombResults$residual)
+plot(rho[-1], ylab = 'rho', pch = 19)
+```
+## Step 6-1-3: Calculate the Effective Number of Observations
+Create the variable `nEff` and compare to the number of good observations `n`.
+
+```{r Gebesee Calculate the Effective Number of Observation}
+
+nEff <- computeEffectiveNumObs(GebCombResults$residual, na.rm = TRUE)
+c(nEff, n)
+```
+
+## Step 6-1-4: Calculate the Effective Number of Observation for 2004 
+We can calculate the number by using the autocorrelation function.
+
+```{r Gebesee Effective Number for 2004}
+?computeEffectiveNumObs # note argument effAcf
+### TO_COMPLETE
+nEff <- computeEffectiveNumObs(Geb2004$residual, na.rm = TRUE, effAcf = rho)
+```
+
+## Step 6-1-5: Calculate the Mean Annual NEE and its Standard Deviation for 2004
+
+Using the non-gap-filled data (`NEE_Ustar_f`), the relative error can calculated. Do not use gap-filled records in uncertainty estimation.
+However, for the mean, the gap-filled values, e.g., `NEE_U50_f`, can be included in the calculation, but in this example, the non-gap-filled results are used.
+
+```{r Gebesee NEE and SD for 2004}
+
+sd_notGapFilled <- Geb2004$NEE_uStar_fsd[Geb2004$NEE_uStar_fqc == 0]
+
+NEE_notGapFilled <- mean(Geb2004$NEE_uStar_f)
+
+sdNEE_notGapFilled = sqrt(mean(sd_notGapFilled^2)) / sqrt(nEff - 1)
+
+c(mean = NEE_notGapFilled, sd = sdNEE_notGapFilled, 
+  cv = sdNEE_notGapFilled/abs(NEE_notGapFilled))
+```
+
+## Step 6-1-6: Combined Uncertainty for the Random and $u_{*Th}$
+
+Remember that standard deviation of independent variables adds in squares.
+```{r Gebesee Combined Uncertainty}
+sdNEEUStar <- sd(NEE_UStar)
+sdNEECombined <- sqrt(sdNEEUStar^2 + sdNEE_notGapFilled^2)
+sdNEECombined 
+```
+
+
