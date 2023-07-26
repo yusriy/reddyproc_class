@@ -7,6 +7,7 @@ output:
   html_document: default
 ---
 # Acknowledgements
+
 This content was built on top of the talk by Thomas Wutzler. Credit goes to him for his: 
 
 1. presentation (https://www.youtube.com/watch?v=-b0vc4u8kls&t=354s) and 
@@ -23,6 +24,7 @@ It would be easier for you to follow the talk if you have brief backgrounds on:
 3. Net Ecosystem Exchange
 
 ## Software
+
 You would need the software below to perform the steps discussed in the talk.
 
 1. R 
@@ -72,7 +74,7 @@ knitr::opts_chunk$set(echo = TRUE)
 The package needs to be installed prior to use. You might also need to install other packages  to run REddyProc. You can do so by using the `install.packages` command for their installation.
 
 ```{r Install Package}
-install.packages("REddyProc", repos = "http://cran.us.r-project.org")
+#install.packages("REddyProc", repos = "http://cran.us.r-project.org")
 ```
 
 You will need to load the package after a successful installation. 
@@ -110,6 +112,7 @@ data(Example_DETha98)
 Get an overview of the data. Look at the data parameters and take note of missing data or `NA`.
 
 ## The Gebesee, Germany, Data 
+
 ### Characteristics
 
 * Surface: Agriculture
@@ -125,6 +128,7 @@ summary(DEGebExample)
 # Data Overview: Tharandt
 
 ## The Tharandt, Germany, Data
+
 ### Characteristics
 
 * Surface: Forest
@@ -152,10 +156,11 @@ Parameters required for REddyProc are:
       * `VPD` 
 
 Note that:
-`Rg` is global solar radiation.
-`Tair` is air temperature.
-`rH` is relative humidity.
-`VPD` is vapor pressure deficit.
+
+* `Rg` is global solar radiation.
+* `Tair` is air temperature.
+* `rH` is relative humidity.
+* `VPD` is vapor pressure deficit.
 
 
 # Step 1-2: Calculate Needed Parameters
@@ -452,12 +457,18 @@ plot(EProcDEGeb$sDATA$sDateTime, EProcDEGeb$sExportResults()$Ustar_uStar_Thres, 
      xlab = 'Time', ylab = 'u*-threshold')
 plot(DEGebExampleV1$DateTime,DEGebExampleV1$NEE, pch = 19, cex = 0.1, col = "darkblue",
      xlab = 'Time', ylab = 'NEE', ylim=c(-50,20), main = "Before u*-Filtering")
-plot(EProcDEGeb$sDATA$sDateTime, EProcDEGeb$sExportResults()$NEE_uStar_orig, pch = 19, cex = 0.1, col = "darkblue",
-     xlab = 'Time', ylab = 'NEE_uStar_orig', ylim=c(-50,20), main = "NEE After u*-Filtering")
-plot(EProcDEGeb$sDATA$sDateTime, EProcDEGeb$sExportResults()$NEE_U50_f, pch = 19, cex = 0.1, col = "darkblue",
-     xlab = 'Time', ylab = 'NEE_U50_f', ylim=c(-50,20), main = "NEE After Gap-Filling")
-plot(EProcDEGeb$sDATA$sDateTime, EProcDEGeb$sExportResults()$NEE_U50_fall, pch = 19, cex = 0.1, col = "darkblue",
-     xlab = 'Time', ylab = 'NEE_U50_fall', ylim=c(-50,20), main = "NEE After Gap-Filling All")
+plot(EProcDEGeb$sDATA$sDateTime, EProcDEGeb$sExportResults()$NEE_uStar_orig, pch = 19, 
+     cex = 0.1, col = "darkblue",
+     xlab = 'Time', ylab = 'NEE_uStar_orig', ylim=c(-50,20), 
+     main = "NEE After u*-Filtering")
+plot(EProcDEGeb$sDATA$sDateTime, EProcDEGeb$sExportResults()$NEE_U50_f, pch = 19, 
+     cex = 0.1, col = "darkblue",
+     xlab = 'Time', ylab = 'NEE_U50_f', ylim=c(-50,20),
+     main = "NEE After Gap-Filling")
+plot(EProcDEGeb$sDATA$sDateTime, EProcDEGeb$sExportResults()$NEE_U50_fall, pch = 19, 
+     cex = 0.1, col = "darkblue",
+     xlab = 'Time', ylab = 'NEE_U50_fall', ylim=c(-50,20), 
+     main = "NEE After Gap-Filling All")
 ```
 
 
@@ -515,10 +526,13 @@ Plot the GPP and Reco for `U50` scenario against time for two days (`48*2`).
 
 ```{r Gebesee Reichstein GPP and Reco Time Series}
 nRec = 48*2 
-plot(head(DEGebExampleV1$DateTime, nRec), head(EProcDEGeb$sExportResults()$GPP_U50_f, nRec), type = "l",
-     xlab = 'Time', ylab = 'NEE_U50')
-lines(head(DEGebExampleV1$DateTime, nRec), head(EProcDEGeb$sExportResults()$Reco_U50,nRec), type = "l", lty = 2,
-     col = 'red')
+plot(head(DEGebExampleV1$DateTime, nRec), 
+     head(EProcDEGeb$sExportResults()$GPP_U50_f, nRec), 
+     type = "l", xlab = 'Time', ylab = 'NEE_U50')
+lines(head(DEGebExampleV1$DateTime, nRec), 
+      head(EProcDEGeb$sExportResults()$Reco_U50,nRec), 
+      type = "l", lty = 2,
+      col = 'red')
 ```
 
 
@@ -545,10 +559,12 @@ Plot the GPP and Reco for `U50` scenario against time for two days (`48*2`).
 
 ```{r Gebesee Lasslop GPP and Reco Time Series}
 nRec <- 48*2 
-plot(head(DEGebExampleV1$DateTime, nRec), head(EProcDEGeb$sExportResults()$GPP_U50_f,nRec), type = "l",
-     xlab = 'Time', ylab = 'NEE_U50')
-lines(head(DEGebExampleV1$DateTime, nRec), head(EProcDEGeb$sExportResults()$Reco_U50,nRec), type = "l", lty = 2,
-     col = 'red')
+plot(head(DEGebExampleV1$DateTime, nRec), 
+     head(EProcDEGeb$sExportResults()$GPP_U50_f,nRec), 
+     type = "l", xlab = 'Time', ylab = 'NEE_U50')
+lines(head(DEGebExampleV1$DateTime, nRec), 
+      head(EProcDEGeb$sExportResults()$Reco_U50,nRec), 
+      type = "l", lty = 2, col = 'red')
 ```
 
 ## Step 5-1-4: Fingerprint Plots of GPP_DT and Reco_DT 
@@ -649,7 +665,7 @@ The residuals are calculated for all the results and the year 2004 for compariso
 
 ```{r Gebesee Calculate Residuals}
 GebCombResults$residual <- ifelse(GebCombResults$NEE_uStar_fqc == 0,
-                                  GebCombResults$NEE_uStar_orig - GebCombResults$NEE_uStar_fall,
+                                  GebCombResults$NEE_uStar_orig - GebCombResults$NEE_uStar_fall, 
                                   NA)
 
 Geb2004$residual <- ifelse(Geb2004$NEE_uStar_fqc == 0,
@@ -706,7 +722,8 @@ sd_notGapFilled <- Geb2004$NEE_uStar_fsd[Geb2004$NEE_uStar_fqc == 0]
 
 sdNEE_notGapFilled = sqrt(mean(sd_notGapFilled^2)) / sqrt(nEff_all - 1)
 
-c(mean = NEE_notGapFilled, sd = sdNEE_notGapFilled, cv = sdNEE_notGapFilled/abs(NEE_notGapFilled))
+c(mean = NEE_notGapFilled, sd = sdNEE_notGapFilled, 
+  cv = sdNEE_notGapFilled/abs(NEE_notGapFilled))
 ```
 
 ## Step 6-1-6: Combined Uncertainties for the $u_*$-Thresholds and Random Uncertainties
