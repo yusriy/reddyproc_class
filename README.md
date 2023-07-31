@@ -1,2 +1,2 @@
 # reddyproc_class
-The codes for the REddyProc class for the FLUXNET ECN Event in August 2023.
+The codes for the REddyProc class of the FLUXNET ECN Event in August 2023.
